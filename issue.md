@@ -1,183 +1,163 @@
-# Feature Plan: User Login & Session Management API (`POST /api/users/login`)
+# Feature Plan: Get Current User API (`POST /api/users/current`)
 
 ## 1. Ringkasan Fitur
-Tujuan dari issue ini adalah membuat fitur login autentikasi user pada aplikasi backend. Fitur ini mencakup penambahan tabel `sessions` untuk menyimpan token sesi login berbasis **UUID**, verifikasi password ter-hash menggunakan **bcrypt**, serta penanganan respons error yang aman.
+Tujuan dari issue ini adalah membuat endpoint untuk mengambil data profil user yang sedang login (*current user*) berdasarkan token sesi yang dikirimkan pada HTTP Header `Authorization`. 
 
-Dokumen ini dirancang sebagai acuan teknis yang jelas dan bertahap (*step-by-step*) bagi programmer junior maupun model AI.
-
----
-
-## 2. Spesifikasi Database (`sessions`)
-
-Lokasi file skema: `src/db/schema.js`
-
-### Struktur Tabel `sessions`:
-| Nama Kolom | Tipe Data | Keterangan |
-| :--- | :--- | :--- |
-| `id` | `serial` / `int` | Primary Key, Auto Increment |
-| `token` | `varchar(255)` | Not Null, Unique (Berisi string UUID sesi login) |
-| `user_id` | `int` | Not Null, Foreign Key mengarah ke `users.id` |
-| `created_at` | `timestamp` | Default current timestamp (`CURRENT_TIMESTAMP`) |
-
-> **Catatan Relasi (Foreign Key)**:
-> Kolom `user_id` pada tabel `sessions` berelasi langsung dengan kolom `id` pada tabel `users` (dapat menggunakan opsi *cascade delete* agar saat user dihapus, sesinya otomatis ikut terhapus).
+Fitur ini memanfaatkan tabel `sessions` yang berelasi dengan tabel `users` untuk memvalidasi sesi aktif pengguna. Dokumen ini dirancang sebagai panduan langkah demi langkah (*step-by-step*) yang mudah dipahami oleh programmer junior maupun model AI.
 
 ---
 
-## 3. Spesifikasi API Endpoint
+## 2. Spesifikasi API Endpoint
 
-### Endpoint: `POST /api/users/login`
-- **Content-Type**: `application/json`
-
-#### Request Body
-```json
-{
-  "email": "nabil@localhost",
-  "password": "rahasia"
-}
-```
+### Endpoint: `POST /api/users/current`
+- **Method**: `POST`
+- **Request Headers**:
+  - `Authorization`: `Bearer <token>` (Token sesi UUID yang didapatkan saat login)
+- **Request Body**: *(Kosong / Tidak memerlukan request body)*
 
 #### Response Sukses (HTTP 200)
+Jika token valid dan sesi ditemukan:
 ```json
 {
-  "data": "a8098c1a-f86e-11da-bd1a-00112444be1e"
+  "data": {
+    "id": 1,
+    "name": "nabil",
+    "email": "nabil@localhost",
+    "create_at": "2026-11-03T12:41:38.000Z"
+  }
 }
 ```
-*(Nilai `"data"` berisi string token UUID yang baru saja digenerate dan disimpan ke tabel `sessions`)*
+> **Penting (Keamanan)**: Kolom `password` **tidak boleh** disertakan dalam response data demi alasan privasi dan keamanan sistem.
 
-#### Response Error (HTTP 400 atau 401)
-Kasus: Email tidak ditemukan ATAU password salah.
+#### Response Error (HTTP 401 Unauthorized)
+Terjadi jika:
+- Header `Authorization` tidak dikirimkan.
+- Format header tidak diawali dengan `Bearer ` atau token kosong.
+- Token tidak ditemukan di tabel `sessions`.
+- Sesi tidak lagi valid / user tidak ditemukan.
 ```json
 {
-  "error": "email atau password salah"
+  "error": "Unauthorized"
 }
 ```
-> **Catatan Keamanan**: Pesan error sengaja dibuat generik (`"email atau password salah"`) agar penyerang (attacker) tidak dapat mengetahui apakah email tersebut terdaftar atau tidak di sistem.
 
 ---
 
-## 4. Standar Arsitektur & Struktur File
+## 3. Standar Arsitektur & Struktur File
 
-Melanjutkan arsitektur proyek berbasis **Separation of Concerns**:
-1. **Route Layer (`src/route/users-route.js`)**: Menerima request HTTP, meneruskan data body ke service, dan mengembalikan format respons HTTP beserta status code.
-2. **Service Layer (`src/services/users-services.js`)**: Menjalankan pengecekan keberadaan user, memvalidasi hash bcrypt, men-generate UUID token, dan menyimpan sesi ke database.
+Melanjutkan arsitektur proyek berbasis **Separation of Concerns (SoC)**:
+1. **Route Layer (`src/route/users-route.js`)**: Membaca request headers, mengekstrak token dari header `Authorization`, memanggil service, dan mengatur status code HTTP (200 untuk sukses, 401 untuk unauthorized).
+2. **Service Layer (`src/services/users-services.js`)**: Mengambil data token, melakukan query ke database (JOIN tabel `sessions` dan `users`), memastikan keamanan data (tidak menyertakan password), dan mengembalikan objek user.
 
 ### Struktur File:
 ```text
 src/
 ├── db/
 │   ├── index.js             # Koneksi Drizzle & pool MySQL
-│   └── schema.js            # Skema tabel users dan penambahan tabel sessions
+│   └── schema.js            # Skema tabel users dan sessions
 ├── route/
-│   └── users-route.js       # Penambahan route handler: POST /api/users/login
+│   └── users-route.js       # Penambahan handler: POST /api/users/current
 └── services/
-    └── users-services.js    # Penambahan fungsi service: loginUser
+    └── users-services.js    # Penambahan fungsi service: getCurrentUser
 ```
 
 ---
 
-## 5. Panduan Tahapan Implementasi (Step-by-Step untuk Junior Programmer)
+## 4. Panduan Tahapan Implementasi (Step-by-Step untuk Junior Programmer)
 
-### Langkah 1: Update Skema Database di `src/db/schema.js`
-1. Buka file `src/db/schema.js`.
-2. Import tipe `int` dari `drizzle-orm/mysql-core`.
-3. Definisikan tabel `sessions`:
-   ```javascript
-   import { mysqlTable, serial, varchar, timestamp, int } from "drizzle-orm/mysql-core";
+### Langkah 1: Pahami Alur Kerja Validasi Token
+1. Client mengirim request ke `POST /api/users/current` dengan header `Authorization: Bearer <token>`.
+2. Server mengambil string token tersebut (menghilangkan kata `"Bearer "`).
+3. Server mencari token tersebut di tabel `sessions`.
+4. Jika ditemukan, server mengambil data `users` yang berelasi dengan `sessions.user_id`.
+5. Data user dikembalikan tanpa kolom `password`.
+6. Jika token tidak ditemukan atau header tidak valid, kembalikan HTTP 401 dengan `{ "error": "Unauthorized" }`.
 
-   export const sessions = mysqlTable("sessions", {
-     id: serial("id").primaryKey(),
-     token: varchar("token", { length: 255 }).notNull().unique(),
-     userId: int("user_id")
-       .notNull()
-       .references(() => users.id, { onDelete: "cascade" }),
-     createdAt: timestamp("created_at").defaultNow().notNull(),
-   });
-   ```
-
-### Langkah 2: Migrasi Database dengan Drizzle Kit
-1. Generate file migrasi baru untuk tabel `sessions`:
-   ```bash
-   bun run db:generate
-   ```
-2. Terapkan perubahan ke database MySQL lokal:
-   ```bash
-   bun run db:push
-   ```
-
-### Langkah 3: Implementasi Logika Login di Service (`src/services/users-services.js`)
-Tambahkan fungsi asynchronous baru `loginUser({ email, password })`:
+### Langkah 2: Tambahkan Service `getCurrentUser` di `src/services/users-services.js`
+Buat fungsi asynchronous `getCurrentUser(token)`:
 1. **Validasi Input**:
-   - Pastikan `email` dan `password` dikirim dan tidak berupa string kosong. Jika kosong, lempar error dengan pesan `"email atau password salah"`.
-2. **Cari User di Database**:
-   - Query tabel `users` berdasarkan email yang diberikan:
+   - Jika `token` tidak ada atau kosong, lempar error dengan pesan `"Unauthorized"` dan `statusCode = 401`.
+2. **Query Database (JOIN sessions & users)**:
+   - Gunakan query Drizzle dengan inner join antara tabel `sessions` dan tabel `users` untuk efisiensi (1 kali query):
      ```javascript
-     const [user] = await db
-       .select()
-       .from(users)
-       .where(eq(users.email, email))
+     const [result] = await db
+       .select({
+         id: users.id,
+         name: users.name,
+         email: users.email,
+         create_at: users.createdAt,
+       })
+       .from(sessions)
+       .innerJoin(users, eq(sessions.userId, users.id))
+       .where(eq(sessions.token, token))
        .limit(1);
      ```
-   - Jika `user` tidak ditemukan, lempar error `"email atau password salah"`.
-3. **Verifikasi Hash Password (Bcrypt)**:
-   - Gunakan fitur native Bun `Bun.password.verify`:
-     ```javascript
-     const isPasswordValid = await Bun.password.verify(password, user.password);
-     ```
-   - Jika `!isPasswordValid`, lempar error `"email atau password salah"`.
-4. **Generate Token Sesi (UUID)**:
-   - Gunakan fungsi native bawaan: `crypto.randomUUID()`.
-5. **Simpan Sesi ke Database**:
-   - Lakukan insert ke tabel `sessions`:
-     ```javascript
-     await db.insert(sessions).values({
-       token,
-       userId: user.id,
-     });
-     ```
-6. **Kembalikan Hasil**:
-   - Return `{ data: token }`.
+3. **Pengecekan Keberadaan Data**:
+   - Jika `!result`, lempar error dengan pesan `"Unauthorized"` dan `statusCode = 401`.
+4. **Kembalikan Hasil**:
+   - Return `{ data: result }`.
 
-### Langkah 4: Tambahkan Handler di Route (`src/route/users-route.js`)
-1. Import fungsi `loginUser` dari `../services/users-services.js`.
-2. Tambahkan endpoint `.post("/login", ...)` ke instance router `usersRoute`:
+### Langkah 3: Tambahkan Handler di Route `src/route/users-route.js`
+1. Import fungsi `getCurrentUser` dari `../services/users-services.js`.
+2. Tambahkan handler route `.post("/current", ...)` pada instance router `usersRoute`:
    ```javascript
-   .post("/login", async ({ body, set }) => {
+   .post("/current", async ({ headers, set }) => {
      try {
-       const result = await loginUser(body);
+       const authHeader = headers.authorization || headers.Authorization;
+       
+       // Cek keberadaan dan format header Authorization
+       if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
+         set.status = 401;
+         return { error: "Unauthorized" };
+       }
+
+       // Ekstrak token setelah kata 'Bearer '
+       const token = authHeader.substring(7).trim();
+       if (!token) {
+         set.status = 401;
+         return { error: "Unauthorized" };
+       }
+
+       const result = await getCurrentUser(token);
        set.status = 200;
        return { data: result.data };
      } catch (error) {
-       set.status = 400; // atau 401 Unauthorized
-       return { error: error.message };
+       set.status = error.statusCode || 401;
+       return { error: "Unauthorized" };
      }
    })
    ```
 
-### Langkah 5: Pengujian & Validasi Fitur
-Jalankan server dengan `bun run dev` dan lakukan pengujian skenario berikut:
+### Langkah 4: Pengujian & Validasi Fitur
+Jalankan server menggunakan `bun run dev` dan lakukan pengujian dengan skenario berikut:
 
-1. **Uji Login Berhasil (Happy Path)**:
-   - Kirim `POST /api/users/login` dengan kredensial yang valid (user yang sudah terdaftar).
-   - Ekspektasi: HTTP 200, respons `{ "data": "<string-uuid-token>" }`.
-2. **Uji Login Gagal - Password Salah**:
-   - Kirim `POST /api/users/login` dengan password keliru.
-   - Ekspektasi: HTTP 400/401, respons `{ "error": "email atau password salah" }`.
-3. **Uji Login Gagal - Email Tidak Terdaftar**:
-   - Kirim `POST /api/users/login` dengan email acak yang belum terdaftar.
-   - Ekspektasi: HTTP 400/401, respons `{ "error": "email atau password salah" }`.
-4. **Verifikasi Database**:
-   - Cek tabel `sessions` di MySQL untuk memastikan record baru tersimpan dengan `token` berupa UUID dan `user_id` yang sesuai dengan ID user login.
+1. **Skenario 1: Login untuk Mendapatkan Token**:
+   - Kirim `POST /api/users/login` dengan email dan password yang benar.
+   - Salin token UUID dari response: `{ "data": "<token>" }`.
+2. **Skenario 2: Get Current User Berhasil (HTTP 200)**:
+   - Kirim `POST /api/users/current` dengan header `Authorization: Bearer <token>`.
+   - Ekspektasi: HTTP 200, response body berupa data user `{ id, name, email, create_at }` dan **tidak memuat password**.
+3. **Skenario 3: Get Current User Gagal - Token Palsu/Salah (HTTP 401)**:
+   - Kirim `POST /api/users/current` dengan header `Authorization: Bearer token-ngawur-123`.
+   - Ekspektasi: HTTP 401, response body `{ "error": "Unauthorized" }`.
+4. **Skenario 4: Get Current User Gagal - Header Kosong (HTTP 401)**:
+   - Kirim `POST /api/users/current` tanpa menyertakan header `Authorization`.
+   - Ekspektasi: HTTP 401, response body `{ "error": "Unauthorized" }`.
+
+---
+
+## 5. Catatan Penting untuk Junior Programmer
+- **Keamanan Data Pengguna**: Selalu gunakan whitelist/proyeksi field saat query user (misal: hanya mengambil `id`, `name`, `email`, `createdAt`). Jangan pernah menggunakan `select()` tanpa spesifikasi field jika hasilnya langsung dikembalikan ke client, karena field `password` akan ikut terekspos.
+- **Konsistensi Format Error**: Seluruh kasus kegagalan autentikasi (token salah, expired, kosong, format rusak) harus selalu mengembalikan HTTP 401 dengan pesan standar `"Unauthorized"`.
 
 ---
 
 ## 6. Definition of Done (DoD)
-- [x] Skema tabel `sessions` dibuat di `src/db/schema.js` dengan relasi foreign key ke tabel `users`.
-- [x] File migrasi Drizzle untuk tabel `sessions` berhasil di-generate dan diaplikasikan ke database.
-- [x] Fungsi `loginUser` di `src/services/users-services.js` memverifikasi password dengan `Bun.password.verify`.
-- [x] Token digenerate menggunakan UUID (`crypto.randomUUID()`) dan tersimpan ke tabel `sessions`.
-- [x] Endpoint `POST /api/users/login` terpasang di `src/route/users-route.js`.
-- [x] Format respon sukses mengembalikan `{ "data": "<token>" }`.
-- [x] Format respon error saat kredensial salah mengembalikan `{ "error": "email atau password salah" }`.
+- [x] Fungsi `getCurrentUser` dibuat di `src/services/users-services.js` menggunakan query JOIN antara tabel `sessions` dan `users`.
+- [x] Kolom `password` tidak disertakan dalam data yang di-return oleh service.
+- [x] Handler `POST /api/users/current` terpasang di `src/route/users-route.js`.
+- [x] Header `Authorization: Bearer <token>` diekstrak dan divalidasi dengan benar.
+- [x] Response sukses mengembalikan format HTTP 200 `{ "data": { "id", "name", "email", "create_at" } }`.
+- [x] Response error saat token tidak valid atau header tidak ada mengembalikan format HTTP 401 `{ "error": "Unauthorized" }`.
 - [x] Seluruh skenario pengujian manual berhasil dipenuhi.
 
