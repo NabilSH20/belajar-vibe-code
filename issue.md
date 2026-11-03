@@ -1,131 +1,252 @@
-# Test Plan: Unit & Integration Testing All APIs (Bun Test)
+# Feature Plan: Integrasi Swagger / OpenAPI Documentation (`@elysiajs/swagger`)
 
 ## 1. Ringkasan & Tujuan
-Dokumen ini merangkum perencanaan pembuatan automated test suite untuk menguji seluruh endpoint API yang tersedia pada aplikasi. Pengujian dilakukan menggunakan test runner bawaan **Bun** (`bun test`). 
+Tujuan dari issue ini adalah menambahkan antarmuka dokumentasi interaktif **Swagger UI / OpenAPI** ke dalam proyek backend. Dengan adanya Swagger, developer frontend, rekan tim, maupun pengguna publik dapat dengan mudah mempelajari spesifikasi API, melihat skema request/response, dan langsung mencoba (*test live*) endpoint API melalui antarmuka web interaktif di browser.
 
-Tujuan utama dari pengujian ini adalah memastikan keandalan fungsional, kepatuhan validasi, penanganan error, serta pencegahan regresi di masa mendatang. Dokumen ini berfokus pada daftar skenario yang wajib diuji, sedangkan detail kode implementasi diserahkan kepada programmer atau model AI.
-
----
-
-## 2. Lingkungan & Konfigurasi Pengujian
-
-- **Direktori Target**: `tests/` (misalnya: `tests/users.test.js` atau file modular per fitur).
-- **Test Runner**: [Bun Test](https://bun.sh/docs/cli/test) (`bun test`).
-- **Skrip `package.json`**: Menambahkan skrip `"test": "bun test"`.
-- **Strategi Isolasi Data (Database Cleanup)**:
-  - Setiap pengujian wajib bersifat independen dan idempoten.
-  - Gunakan hook lifecycle (`beforeEach` atau `afterEach`) untuk membersihkan data tabel `sessions` dan `users` di database agar data pengujian selalu konsisten dan tidak saling mengotori (*no test pollution*).
-- **Metode Pemanggilan API**:
-  - Manfaatkan fungsi `app.handle(new Request(...))` bawaan Elysia untuk eksekusi request in-memory yang cepat tanpa perlu membuka port jaringan lokal secara manual.
+Dokumen ini disusun secara rinci dan bertahap (*step-by-step*) khusus untuk programmer junior maupun model AI agar implementasi dapat dilakukan dengan standar terbaik ElysiaJS.
 
 ---
 
-## 3. Matriks Skenario Pengujian per API
+## 2. Library & Tooling yang Digunakan
 
-### 3.1. Endpoint Registrasi User (`POST /api/users`)
-Daftar skenario yang wajib diuji:
-1. **Skenario Sukses (Happy Path)**:
-   - Registrasi dengan data `name`, `email`, dan `password` yang valid $\rightarrow$ Ekspektasi: HTTP 200 `{ "data": "OK" }`.
-   - Verifikasi ke database bahwa password yang tersimpan berbentuk hash bcrypt (bukan teks asli).
-2. **Skenario Validasi Input Kosong**:
-   - Request body tanpa atribut `name` $\rightarrow$ Ekspektasi: HTTP 400.
-   - Request body tanpa atribut `email` $\rightarrow$ Ekspektasi: HTTP 400.
-   - Request body tanpa atribut `password` $\rightarrow$ Ekspektasi: HTTP 400.
-   - Request body kosong `{}` $\rightarrow$ Ekspektasi: HTTP 400.
-3. **Skenario Validasi Tipe Data & Whitespace**:
-   - Nilai field hanya berupa spasi kosong (`"   "`) $\rightarrow$ Ekspektasi: HTTP 400.
-   - Nilai field bertipe non-string (misal: angka/boolean) $\rightarrow$ Ekspektasi: HTTP 400.
-4. **Skenario Validasi Batas Panjang Karakter**:
-   - `name` memiliki panjang > 255 karakter $\rightarrow$ Ekspektasi: HTTP 400 `{ "error": "nama maksimal 255 karakter" }`.
-   - `email` memiliki panjang > 255 karakter $\rightarrow$ Ekspektasi: HTTP 400 `{ "error": "email maksimal 255 karakter" }`.
-   - `password` memiliki panjang > 255 karakter $\rightarrow$ Ekspektasi: HTTP 400 `{ "error": "password maksimal 255 karakter" }`.
-5. **Skenario Duplikasi Data**:
-   - Registrasi ulang dengan email yang sudah terdaftar $\rightarrow$ Ekspektasi: HTTP 400 `{ "error": "email sudah terdaftar" }`.
-6. **Skenario Keamanan (No SQL Leak)**:
-   - Memastikan tidak ada potongan query SQL mentah atau stack trace database yang muncul pada respon error.
+- **Library**: [`@elysiajs/swagger`](https://elysiajs.com/plugins/swagger.html)
+- **Framework Web**: [ElysiaJS](https://elysiajs.com/)
+- **Schema Builder**: Modul `t` (TypeBox) bawaan dari package `elysia` untuk mendefinisikan validasi dan skema OpenAPI.
+- **URL Akses**: `http://localhost:3000/swagger` (dan file spesifikasi JSON di `http://localhost:3000/swagger/json`).
 
 ---
 
-### 3.2. Endpoint Login User (`POST /api/users/login`)
-Daftar skenario yang wajib diuji:
-1. **Skenario Sukses (Happy Path)**:
-   - Login dengan kombinasi email dan password yang benar $\rightarrow$ Ekspektasi: HTTP 200 `{ "data": "<token-uuid>" }`.
-   - Verifikasi bahwa token baru tersebut berhasil tercatat di tabel `sessions` pada database dengan `user_id` yang sesuai.
-2. **Skenario Kredensial Salah**:
-   - Login dengan email yang terdaftar, namun password salah $\rightarrow$ Ekspektasi: HTTP 400 `{ "error": "email atau password salah" }`.
-   - Login dengan email yang belum terdaftar di database $\rightarrow$ Ekspektasi: HTTP 400 `{ "error": "email atau password salah" }`.
-3. **Skenario Validasi Request Body**:
-   - Request body tanpa atribut `email` $\rightarrow$ Ekspektasi: HTTP 400.
-   - Request body tanpa atribut `password` $\rightarrow$ Ekspektasi: HTTP 400.
-   - Request body kosong `{}` $\rightarrow$ Ekspektasi: HTTP 400.
+## 3. Spesifikasi Fitur Dokumentasi Swagger
+
+### 3.1. Metadata Umum API
+- **Title**: `Belajar Vibe Code API`
+- **Version**: `1.0.0`
+- **Description**: `Dokumentasi RESTful API untuk autentikasi pengguna dan manajemen sesi dengan ElysiaJS, Drizzle ORM, dan MySQL.`
+- **Tags Pengelompokan**:
+  - `Users`: Endpoint terkait pengguna (registrasi, login, profil, logout).
+  - `System`: Endpoint pemeriksaan server dan konektivitas database.
+
+### 3.2. Konfigurasi Autentikasi (Bearer Auth)
+Swagger UI harus mendukung pengujian endpoint yang memerlukan token sesi (`/current` dan `/logout`) melalui tombol **Authorize**:
+- **Security Scheme**: `bearerAuth`
+- **Type**: `http`
+- **Scheme**: `bearer`
+- **Bearer Format**: `UUID`
 
 ---
 
-### 3.3. Endpoint Get Current User (`POST /api/users/current`)
-Daftar skenario yang wajib diuji:
-1. **Skenario Sukses (Happy Path)**:
-   - Mengakses endpoint dengan header `Authorization: Bearer <valid-token>` $\rightarrow$ Ekspektasi: HTTP 200 mengembalikan profil pengguna `{ id, name, email, create_at }`.
-   - **Verifikasi Keamanan**: Memastikan atribut `password` **tidak ada** di dalam data respon.
-2. **Skenario Token Tidak Valid / Expired**:
-   - Mengakses dengan token acak yang tidak terdaftar di tabel `sessions` $\rightarrow$ Ekspektasi: HTTP 401 `{ "error": "Unauthorized" }`.
-3. **Skenario Header Tidak Lengkap / Format Rusak**:
-   - Request tanpa menyertakan header `Authorization` $\rightarrow$ Ekspektasi: HTTP 401 `{ "error": "Unauthorized" }`.
-   - Header `Authorization` tidak diawali dengan skema `Bearer ` (misal: `Basic xyz` atau hanya string token saja) $\rightarrow$ Ekspektasi: HTTP 401 `{ "error": "Unauthorized" }`.
-   - Header `Authorization` hanya berisi kata `Bearer` tanpa token $\rightarrow$ Ekspektasi: HTTP 401 `{ "error": "Unauthorized" }`.
-4. **Skenario Case-Insensitive Skema**:
-   - Header diawali dengan huruf kecil `bearer <token>` $\rightarrow$ Ekspektasi: Tetap berhasil HTTP 200.
+## 4. Matriks Dokumentasi Endpoint
+
+| Method | Path | Tag | Auth | Deskripsi |
+| :--- | :--- | :--- | :---: | :--- |
+| `GET` | `/` | System | ❌ | Informasi dasar server |
+| `GET` | `/health` | System | ❌ | Healthcheck status server & koneksi database MySQL |
+| `POST` | `/api/users` | Users | ❌ | Registrasi akun pengguna baru |
+| `POST` | `/api/users/login` | Users | ❌ | Autentikasi login pengguna dan pembuatan token sesi UUID |
+| `POST` | `/api/users/current` | Users | 🔒 | Mengambil profil user yang sedang login (tanpa password) |
+| `DELETE` | `/api/users/logout` | Users | 🔒 | Logout dan menghapus token sesi aktif dari database |
 
 ---
 
-### 3.4. Endpoint Logout User (`DELETE /api/users/logout`)
-Daftar skenario yang wajib diuji:
-1. **Skenario Sukses (Happy Path)**:
-   - Logout dengan header `Authorization: Bearer <valid-token>` $\rightarrow$ Ekspektasi: HTTP 200 `{ "data": "OK" }`.
-   - Verifikasi ke database bahwa record token terkait **benar-benar telah terhapus** dari tabel `sessions`.
-2. **Skenario Token Tidak Ditemukan / Sudah Hangus**:
-   - Logout menggunakan token yang sudah pernah di-logout sebelumnya (repeat logout) $\rightarrow$ Ekspektasi: HTTP 401 `{ "error": "Unauthorized" }`.
-   - Logout menggunakan token acak yang tidak terdaftar di database $\rightarrow$ Ekspektasi: HTTP 401 `{ "error": "Unauthorized" }`.
-3. **Skenario Validasi Header**:
-   - Request tanpa menyertakan header `Authorization` $\rightarrow$ Ekspektasi: HTTP 401 `{ "error": "Unauthorized" }`.
-   - Format header bukan `Bearer` $\rightarrow$ Ekspektasi: HTTP 401 `{ "error": "Unauthorized" }`.
-4. **Skenario Alur Lengkap (Session Invalidation Lifecycle)**:
-   - Alur: Login $\rightarrow$ Ambil profil via `/current` (berhasil) $\rightarrow$ Logout via `/logout` (berhasil) $\rightarrow$ Coba ambil profil lagi via `/current` dengan token yang sama $\rightarrow$ Ekspektasi: Ditolak dengan HTTP 401 `{ "error": "Unauthorized" }`.
+## 5. Panduan Tahapan Implementasi Langkah demi Langkah (Junior Programmer Friendly)
+
+### Langkah 1: Instalasi Library `@elysiajs/swagger`
+Jalankan perintah instalasi menggunakan runtime Bun di terminal:
+```bash
+bun add @elysiajs/swagger
+```
+Pastikan `@elysiajs/swagger` tercatat pada bagian `"dependencies"` di file `package.json`.
 
 ---
 
-### 3.5. Endpoint Pendukung (Healthcheck & Root)
-1. **Root Endpoint (`GET /`)**:
-   - Ekspektasi: HTTP 200 mengembalikan pesan info server.
-2. **Healthcheck Endpoint (`GET /health`)**:
-   - Ekspektasi: HTTP 200 mengembalikan status server dan status konektivitas database MySQL.
+### Langkah 2: Registrasi Swagger Plugin di `src/index.js`
+Buka file `src/index.js` dan konfigurasikan plugin `swagger`:
+1. Import `swagger` dari `@elysiajs/swagger`.
+2. Pasang plugin sebelum routes menggunakan `.use(swagger({ ... }))`:
+```javascript
+import { Elysia } from "elysia";
+import { swagger } from "@elysiajs/swagger";
+import { checkDatabaseConnection } from "./db/index.js";
+import { usersRoute } from "./route/users-route.js";
+
+const app = new Elysia();
+const PORT = Number(process.env.PORT) || 3000;
+
+// Registrasi Plugin Swagger UI
+app.use(
+  swagger({
+    path: "/swagger",
+    documentation: {
+      info: {
+        title: "Belajar Vibe Code API",
+        version: "1.0.0",
+        description: "Dokumentasi RESTful API untuk autentikasi pengguna dan manajemen sesi dengan ElysiaJS, Drizzle ORM, dan MySQL.",
+      },
+      tags: [
+        { name: "Users", description: "Endpoint autentikasi dan manajemen akun pengguna" },
+        { name: "System", description: "Endpoint status server dan database" },
+      ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "UUID",
+            description: "Masukkan token sesi UUID yang didapatkan dari endpoint login",
+          },
+        },
+      },
+    },
+  })
+);
+
+// Endpoint System
+app.get(
+  "/",
+  () => ({
+    message: "ElysiaJS + Drizzle ORM + MySQL server running with Bun!",
+    version: "1.0.0",
+  }),
+  {
+    detail: {
+      tags: ["System"],
+      summary: "Server Info",
+      description: "Menampilkan informasi dasar server yang sedang berjalan",
+    },
+  }
+);
+
+app.get(
+  "/health",
+  async () => {
+    const dbStatus = await checkDatabaseConnection();
+    return {
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      database: dbStatus,
+    };
+  },
+  {
+    detail: {
+      tags: ["System"],
+      summary: "Healthcheck Server & Database",
+      description: "Memeriksa status server dan konektivitas ke database MySQL",
+    },
+  }
+);
+
+// Registrasi Route Users
+app.use(usersRoute);
+
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server is running at http://localhost:${PORT}`);
+    console.log(`📚 Swagger documentation available at http://localhost:${PORT}/swagger`);
+  });
+}
+
+export default app;
+```
 
 ---
 
-## 4. Panduan Eksekusi bagi Programmer & Model AI
+### Langkah 3: Tambahkan Skema Detail pada Route di `src/route/users-route.js`
+Gunakan objek `t` dari `elysia` untuk mendefinisikan skema payload dan opsi `detail` (OpenAPI metadata) pada setiap endpoint:
 
-1. Buat folder `tests/` di root proyek.
-2. Buat file test, misalnya `tests/users.test.js`.
-3. Manfaatkan assertions dan hooks dari modul test Bun:
+1. **Import `t` dari `elysia`**:
    ```javascript
-   import { describe, it, expect, beforeEach, afterAll } from "bun:test";
+   import { Elysia, t } from "elysia";
    ```
-4. Di dalam hook `beforeEach`, jalankan pembersihan data tabel:
-   - Hapus tabel `sessions` terlebih dahulu (child).
-   - Hapus tabel `users` (parent).
-5. Jalankan pengujian melalui terminal:
-   ```bash
-   bun test
+
+2. **Endpoint `POST /api/users` (Registrasi)**:
+   Tambahkan deskripsi body dan tag:
+   ```javascript
+   .post("/", async ({ body, set }) => { ... }, {
+     body: t.Object({
+       name: t.String({ maxLength: 255, description: "Nama lengkap pengguna" }),
+       email: t.String({ maxLength: 255, description: "Email pengguna" }),
+       password: t.String({ maxLength: 255, description: "Kata sandi pengguna" }),
+     }),
+     detail: {
+       tags: ["Users"],
+       summary: "Registrasi Pengguna Baru",
+       description: "Mendaftarkan pengguna baru ke sistem dan meng-hash password dengan bcrypt",
+     },
+   })
    ```
-6. Pastikan seluruh skenario lulus (*100% passing*) tanpa flaky tests.
+
+3. **Endpoint `POST /api/users/login` (Login)**:
+   ```javascript
+   .post("/login", async ({ body, set }) => { ... }, {
+     body: t.Object({
+       email: t.String({ description: "Email akun terdaftar" }),
+       password: t.String({ description: "Kata sandi akun" }),
+     }),
+     detail: {
+       tags: ["Users"],
+       summary: "Autentikasi Login Pengguna",
+       description: "Memverifikasi email & password, serta menghasilkan token sesi UUID",
+     },
+   })
+   ```
+
+4. **Endpoint `POST /api/users/current` (Current User)**:
+   Sertakan konfigurasi `security`:
+   ```javascript
+   .post("/current", async ({ headers, set }) => { ... }, {
+     detail: {
+       tags: ["Users"],
+       summary: "Get Profil Pengguna Sedang Login",
+       description: "Mengambil data profil pengguna aktif berdasarkan Bearer token sesi (tanpa password)",
+       security: [{ bearerAuth: [] }],
+     },
+   })
+   ```
+
+5. **Endpoint `DELETE /api/users/logout` (Logout)**:
+   Sertakan konfigurasi `security`:
+   ```javascript
+   .delete("/logout", async ({ headers, set }) => { ... }, {
+     detail: {
+       tags: ["Users"],
+       summary: "Logout Pengguna",
+       description: "Menghapus token sesi aktif pengguna dari database secara permanen",
+       security: [{ bearerAuth: [] }],
+     },
+   })
+   ```
 
 ---
 
-## 5. Definition of Done (DoD)
-- [x] Folder `tests/` dibuat dan skrip `"test": "bun test"` terdaftar di `package.json`.
-- [x] Mekanisme pembersihan database (*database cleanup*) diimplementasikan sebelum setiap skenario pengujian.
-- [x] Seluruh skenario pengujian untuk `POST /api/users` terimplementasi dan lulus.
-- [x] Seluruh skenario pengujian untuk `POST /api/users/login` terimplementasi dan lulus.
-- [x] Seluruh skenario pengujian untuk `POST /api/users/current` terimplementasi dan lulus.
-- [x] Seluruh skenario pengujian untuk `DELETE /api/users/logout` terimplementasi dan lulus.
-- [x] Skenario pengujian endpoint pendukung (`GET /` dan `GET /health`) terimplementasi dan lulus.
-- [x] Perintah `bun test` dapat dieksekusi dengan sukses tanpa ada test yang gagal atau menggantung (*hanging*).
+### Langkah 4: Pengujian & Validasi Fitur Swagger
+
+1. **Jalankan Server Lokal**:
+   ```bash
+   bun run dev
+   ```
+2. **Akses Swagger UI**:
+   - Buka browser dan arahkan ke: `http://localhost:3000/swagger`.
+   - Pastikan halaman Swagger UI tampil rapi dengan tema OpenAPI.
+3. **Validasi Elemen Swagger**:
+   - Seluruh endpoint (`/`, `/health`, `/api/users`, `/api/users/login`, `/api/users/current`, `/api/users/logout`) muncul dan terkelompokkan dalam tag `System` dan `Users`.
+   - Terdapat tombol hijau **Authorize** di pojok kanan atas untuk memasukkan Bearer token.
+4. **Uji Langsung (*Try it out*)**:
+   - Coba jalankan request `POST /api/users/login` langsung dari Swagger UI untuk mendapatkan token.
+   - Klik tombol **Authorize**, masukkan token tersebut.
+   - Jalankan request `POST /api/users/current` dari Swagger UI untuk memastikan autentikasi Bearer bekerja.
+5. **Jalankan Unit Test**:
+   - Pastikan seluruh pengujian automated test yang sudah ada tetap lulus 100%:
+     ```bash
+     bun test
+     ```
+
+---
+
+## 6. Definition of Done (DoD)
+- [x] Package `@elysiajs/swagger` terpasang di `package.json`.
+- [x] Plugin Swagger berhasil didaftarkan di `src/index.js` dengan path `/swagger`.
+- [x] Konfigurasi `securitySchemes` (`bearerAuth`) tersedia sehingga pengguna bisa memasukkan token di Swagger UI.
+- [x] Seluruh endpoint (`System` dan `Users`) memiliki metadata `summary`, `description`, dan `tags`.
+- [x] Skema request body pada endpoint registrasi dan login terdefinisi dengan jelas menggunakan TypeBox (`t`).
+- [x] Halaman Swagger UI dapat diakses dengan sukses di `http://localhost:3000/swagger`.
+- [x] Seluruh unit test (`bun test`) tetap berjalan sukses (22 pass, 0 fail).
