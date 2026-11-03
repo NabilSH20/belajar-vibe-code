@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "bun --watch src/index.js",
     "start": "bun src/index.js",
+    "test": "bun test",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"

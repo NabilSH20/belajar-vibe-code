@@ -23,8 +23,10 @@ app.get("/health", async () => {
 // Registrasi modul routes
 app.use(usersRoute);
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running at http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server is running at http://localhost:${PORT}`);
+  });
+}
 
 export default app;
