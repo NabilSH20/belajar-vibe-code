@@ -15,6 +15,7 @@ Layanan backend RESTful API modern dan berkinerja tinggi untuk autentikasi pengg
 | **Database** | MySQL (5.7 / 8.0+) | Basis data relasional (RDBMS). |
 | **Password Hashing** | `Bun.password` (Bcrypt) | Modul native Bun untuk hashing dan verifikasi kata sandi menggunakan algoritma **bcrypt**. |
 | **Token Sesi** | Web Crypto (`crypto.randomUUID`) | Generator UUID v4 native untuk token sesi autentikasi pengguna. |
+| **API Documentation** | [@elysiajs/swagger](https://elysiajs.com/plugins/swagger.html) | OpenAPI & Swagger UI interaktif terintegrasi pada endpoint `/swagger`. |
 | **Test Runner** | `bun test` | Runner unit & integration test bawaan Bun untuk pengujian cepat. |
 
 ---
@@ -81,6 +82,10 @@ Menyimpan token sesi aktif dari pengguna yang berhasil login:
 ## 📡 Dokumentasi API yang Tersedia
 
 Base URL: `http://localhost:3000`
+
+> 📖 **Dokumentasi Interaktif (Swagger UI)**:
+> Kunjungi **`http://localhost:3000/swagger`** di browser untuk melihat dokumentasi visual, skema interaktif, dan langsung mencoba (*live testing*) seluruh API.
+> Spesifikasi OpenAPI JSON tersedia di **`http://localhost:3000/swagger/json`**.
 
 ### 1. Registrasi Pengguna Baru
 - **Endpoint**: `POST /api/users`
@@ -238,7 +243,7 @@ Server akan aktif di: `http://localhost:3000`
 
 ## 🧪 Menjalankan Automated Unit & Integration Tests
 
-Aplikasi dilengkapi test suite lengkap (20 skenario uji) yang mencakup seluruh endpoint, kasus validasi batas karakter, penolakan kredensial salah, siklus sesi login-logout, dan proteksi dari kebocoran SQL.
+Aplikasi dilengkapi test suite lengkap (22 skenario uji) yang mencakup seluruh endpoint, kasus validasi batas karakter, penolakan kredensial salah, siklus sesi login-logout, dan proteksi dari kebocoran SQL.
 
 Setiap test case secara otomatis membersihkan tabel `sessions` dan `users` (`beforeEach` cleanup) untuk menjamin isolasi dan konsistensi data.
 

@@ -419,3 +419,39 @@ describe("DELETE /api/users/logout - Logout User", () => {
   });
 });
 
+
+describe("Swagger / OpenAPI Documentation Endpoints", () => {
+  it("GET /swagger should serve interactive Swagger UI HTML", async () => {
+    const res = await request("/swagger");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+  });
+
+  it("GET /swagger/json should serve valid OpenAPI spec with all routes and security schemes", async () => {
+    const res = await request("/swagger/json");
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+    expect(res.body.openapi).toBeDefined();
+    expect(res.body.info.title).toBe("Belajar Vibe Code API");
+    expect(res.body.info.version).toBe("1.0.0");
+
+    // Security scheme
+    expect(res.body.components?.securitySchemes?.bearerAuth).toBeDefined();
+    expect(res.body.components.securitySchemes.bearerAuth.scheme).toBe("bearer");
+
+    // Check paths
+    const paths = res.body.paths;
+    expect(paths["/"]).toBeDefined();
+    expect(paths["/health"]).toBeDefined();
+    expect(paths["/api/users"]).toBeDefined();
+    expect(paths["/api/users/login"]).toBeDefined();
+    expect(paths["/api/users/current"]).toBeDefined();
+    expect(paths["/api/users/logout"]).toBeDefined();
+
+    // Check tags and security on users endpoints
+    expect(paths["/api/users"].post.tags).toContain("Users");
+    expect(paths["/api/users/login"].post.tags).toContain("Users");
+    expect(paths["/api/users/current"].post.security).toEqual([{ bearerAuth: [] }]);
+    expect(paths["/api/users/logout"].delete.security).toEqual([{ bearerAuth: [] }]);
+  });
+});
