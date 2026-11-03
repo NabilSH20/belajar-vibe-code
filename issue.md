@@ -172,12 +172,12 @@ Jalankan server dengan `bun run dev` dan lakukan pengujian skenario berikut:
 ---
 
 ## 6. Definition of Done (DoD)
-- [ ] Skema tabel `sessions` dibuat di `src/db/schema.js` dengan relasi foreign key ke tabel `users`.
-- [ ] File migrasi Drizzle untuk tabel `sessions` berhasil di-generate dan diaplikasikan ke database.
-- [ ] Fungsi `loginUser` di `src/services/users-services.js` memverifikasi password dengan `Bun.password.verify`.
-- [ ] Token digenerate menggunakan UUID (`crypto.randomUUID()`) dan tersimpan ke tabel `sessions`.
-- [ ] Endpoint `POST /api/users/login` terpasang di `src/route/users-route.js`.
-- [ ] Format respon sukses mengembalikan `{ "data": "<token>" }`.
-- [ ] Format respon error saat kredensial salah mengembalikan `{ "error": "email atau password salah" }`.
-- [ ] Seluruh skenario pengujian manual berhasil dipenuhi.
+- [x] Skema tabel `sessions` dibuat di `src/db/schema.js` dengan relasi foreign key ke tabel `users`.
+- [x] File migrasi Drizzle untuk tabel `sessions` berhasil di-generate dan diaplikasikan ke database.
+- [x] Fungsi `loginUser` di `src/services/users-services.js` memverifikasi password dengan `Bun.password.verify`.
+- [x] Token digenerate menggunakan UUID (`crypto.randomUUID()`) dan tersimpan ke tabel `sessions`.
+- [x] Endpoint `POST /api/users/login` terpasang di `src/route/users-route.js`.
+- [x] Format respon sukses mengembalikan `{ "data": "<token>" }`.
+- [x] Format respon error saat kredensial salah mengembalikan `{ "error": "email atau password salah" }`.
+- [x] Seluruh skenario pengujian manual berhasil dipenuhi.
 

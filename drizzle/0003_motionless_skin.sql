@@ -1,0 +1,1 @@
+ALTER TABLE `sessions` MODIFY COLUMN `user_id` bigint unsigned NOT NULL;

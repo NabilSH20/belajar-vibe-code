@@ -15,6 +15,20 @@
       "when": 1793684370114,
       "tag": "0001_glamorous_millenium_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1793685866079,
+      "tag": "0002_deep_invaders",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1793685916147,
+      "tag": "0003_motionless_skin",
+      "breakpoints": true
     }
   ]
 }
