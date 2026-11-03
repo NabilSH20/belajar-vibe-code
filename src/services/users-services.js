@@ -132,3 +132,27 @@ export async function getCurrentUser(token) {
 
   return { data: result };
 }
+
+/**
+ * Service untuk logout user dan menghapus token sesi dari database
+ * @param {string} token
+ * @returns {Promise<{ data: string }>}
+ */
+export async function logoutUser(token) {
+  if (!token) {
+    const error = new Error("Unauthorized");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  // Hapus sesi secara langsung dalam 1 query atomik untuk efisiensi dan menghindari race condition
+  const [result] = await db.delete(sessions).where(eq(sessions.token, token));
+
+  if (!result || result.affectedRows === 0) {
+    const error = new Error("Unauthorized");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  return { data: "OK" };
+}
