@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { checkDatabaseConnection } from "./db/index.js";
+import { usersRoute } from "./route/users-route.js";
 
 const app = new Elysia();
 
@@ -19,9 +20,11 @@ app.get("/health", async () => {
   };
 });
 
+// Registrasi modul routes
+app.use(usersRoute);
+
 app.listen(PORT, () => {
   console.log(`🚀 Server is running at http://localhost:${PORT}`);
 });
 
 export default app;
-

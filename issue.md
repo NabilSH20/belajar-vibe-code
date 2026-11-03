@@ -167,11 +167,11 @@ Lakukan pengujian manual untuk memastikan endpoint bekerja sesuai spesifikasi:
 ---
 
 ## 6. Definition of Done (DoD)
-- [ ] Kolom `password` bertipe `varchar(255) not null` ditambahkan ke skema `users` di `src/db/schema.js`.
-- [ ] File migrasi Drizzle berhasil di-generate.
-- [ ] Direktori `src/route/` dan `src/services/` dibuat.
-- [ ] File `src/services/users-services.js` menangani pengecekan email, hashing bcrypt, dan penyimpanan data.
-- [ ] File `src/route/users-route.js` menangani endpoint `POST /api/users`.
-- [ ] Route terdaftar di `src/index.js`.
-- [ ] Format response sukses `{ "data": "OK" }` dan error `{ "error": "email sudah terdaftar" }` sesuai spesifikasi.
-- [ ] Password tersimpan dalam bentuk hash di database.
+- [x] Kolom `password` bertipe `varchar(255) not null` ditambahkan ke skema `users` di `src/db/schema.js`.
+- [x] File migrasi Drizzle berhasil di-generate.
+- [x] Direktori `src/route/` dan `src/services/` dibuat.
+- [x] File `src/services/users-services.js` menangani pengecekan email, hashing bcrypt, dan penyimpanan data.
+- [x] File `src/route/users-route.js` menangani endpoint `POST /api/users`.
+- [x] Route terdaftar di `src/index.js`.
+- [x] Format response sukses `{ "data": "OK" }` dan error `{ "error": "email sudah terdaftar" }` sesuai spesifikasi.
+- [x] Password tersimpan dalam bentuk hash di database.
