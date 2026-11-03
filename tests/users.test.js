@@ -418,3 +418,4 @@ describe("DELETE /api/users/logout - Logout User", () => {
     expect(resCurrentAfter.body.error).toBe("Unauthorized");
   });
 });
+
