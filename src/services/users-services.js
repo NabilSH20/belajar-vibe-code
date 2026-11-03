@@ -8,9 +8,44 @@ import { users, sessions } from "../db/schema.js";
  * @returns {Promise<{ data: string }>}
  */
 export async function registerUser({ name, email, password } = {}) {
-  // Validasi kelengkapan input
-  if (!name || !email || !password) {
+  // Validasi kelengkapan input dan tipe data
+  if (
+    !name ||
+    !email ||
+    !password ||
+    typeof name !== "string" ||
+    typeof email !== "string" ||
+    typeof password !== "string"
+  ) {
     const error = new Error("name, email, dan password wajib diisi");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const trimmedName = name.trim();
+  const trimmedEmail = email.trim();
+
+  if (!trimmedName || !trimmedEmail || !password) {
+    const error = new Error("name, email, dan password wajib diisi");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Validasi batas panjang karakter maksimum
+  if (trimmedName.length > 255) {
+    const error = new Error("nama maksimal 255 karakter");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (trimmedEmail.length > 255) {
+    const error = new Error("email maksimal 255 karakter");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (password.length > 255) {
+    const error = new Error("password maksimal 255 karakter");
     error.statusCode = 400;
     throw error;
   }
@@ -19,7 +54,7 @@ export async function registerUser({ name, email, password } = {}) {
   const existingUser = await db
     .select()
     .from(users)
-    .where(eq(users.email, email))
+    .where(eq(users.email, trimmedEmail))
     .limit(1);
 
   if (existingUser.length > 0) {
@@ -37,8 +72,8 @@ export async function registerUser({ name, email, password } = {}) {
   // Simpan data user ke database
   try {
     await db.insert(users).values({
-      name,
-      email,
+      name: trimmedName,
+      email: trimmedEmail,
       password: hashedPassword,
     });
   } catch (err) {
@@ -48,7 +83,12 @@ export async function registerUser({ name, email, password } = {}) {
       error.statusCode = 400;
       throw error;
     }
-    throw err;
+
+    // Cegah kebocoran raw query SQL ke client, log di server dan kirim generic error
+    console.error("Database error in registerUser:", err);
+    const serverError = new Error("Terjadi kesalahan pada server");
+    serverError.statusCode = 500;
+    throw serverError;
   }
 
   return { data: "OK" };

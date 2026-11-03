@@ -117,9 +117,9 @@ Lakukan pengujian otomatis atau manual dengan skenario berikut:
 ---
 
 ## 6. Definition of Done (DoD)
-- [ ] Validasi batas panjang karakter (`maxLength: 255`) untuk `name`, `email`, dan `password` ditambahkan ke `src/services/users-services.js`.
-- [ ] Error database yang tidak terduga disanitasi sehingga mengembalikan status HTTP 500 dengan pesan aman `"Terjadi kesalahan pada server"`.
-- [ ] Request registrasi dengan `name` > 255 karakter mengembalikan HTTP 400 dengan pesan `"nama maksimal 255 karakter"`.
-- [ ] Tidak ada query SQL atau error mentah yang bocor ke response client.
-- [ ] Registrasi data valid tetap berjalan normal tanpa regresi.
-- [ ] Seluruh skenario pengujian manual berhasil dipenuhi.
+- [x] Validasi batas panjang karakter (`maxLength: 255`) untuk `name`, `email`, dan `password` ditambahkan ke `src/services/users-services.js`.
+- [x] Error database yang tidak terduga disanitasi sehingga mengembalikan status HTTP 500 dengan pesan aman `"Terjadi kesalahan pada server"`.
+- [x] Request registrasi dengan `name` > 255 karakter mengembalikan HTTP 400 dengan pesan `"nama maksimal 255 karakter"`.
+- [x] Tidak ada query SQL atau error mentah yang bocor ke response client.
+- [x] Registrasi data valid tetap berjalan normal tanpa regresi.
+- [x] Seluruh skenario pengujian manual berhasil dipenuhi.
