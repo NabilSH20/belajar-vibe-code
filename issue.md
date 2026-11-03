@@ -153,11 +153,11 @@ Jalankan server menggunakan `bun run dev` dan lakukan pengujian dengan skenario 
 ---
 
 ## 6. Definition of Done (DoD)
-- [ ] Fungsi `getCurrentUser` dibuat di `src/services/users-services.js` menggunakan query JOIN antara tabel `sessions` dan `users`.
-- [ ] Kolom `password` tidak disertakan dalam data yang di-return oleh service.
-- [ ] Handler `POST /api/users/current` terpasang di `src/route/users-route.js`.
-- [ ] Header `Authorization: Bearer <token>` diekstrak dan divalidasi dengan benar.
-- [ ] Response sukses mengembalikan format HTTP 200 `{ "data": { "id", "name", "email", "create_at" } }`.
-- [ ] Response error saat token tidak valid atau header tidak ada mengembalikan format HTTP 401 `{ "error": "Unauthorized" }`.
-- [ ] Seluruh skenario pengujian manual berhasil dipenuhi.
+- [x] Fungsi `getCurrentUser` dibuat di `src/services/users-services.js` menggunakan query JOIN antara tabel `sessions` dan `users`.
+- [x] Kolom `password` tidak disertakan dalam data yang di-return oleh service.
+- [x] Handler `POST /api/users/current` terpasang di `src/route/users-route.js`.
+- [x] Header `Authorization: Bearer <token>` diekstrak dan divalidasi dengan benar.
+- [x] Response sukses mengembalikan format HTTP 200 `{ "data": { "id", "name", "email", "create_at" } }`.
+- [x] Response error saat token tidak valid atau header tidak ada mengembalikan format HTTP 401 `{ "error": "Unauthorized" }`.
+- [x] Seluruh skenario pengujian manual berhasil dipenuhi.
 

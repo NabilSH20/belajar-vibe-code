@@ -99,3 +99,36 @@ export async function loginUser({ email, password } = {}) {
 
   return { data: token };
 }
+
+/**
+ * Service untuk mengambil data user yang sedang login berdasarkan session token
+ * @param {string} token
+ * @returns {Promise<{ data: { id: number, name: string, email: string, create_at: any } }>}
+ */
+export async function getCurrentUser(token) {
+  if (!token) {
+    const error = new Error("Unauthorized");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const [result] = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      create_at: users.createdAt,
+    })
+    .from(sessions)
+    .innerJoin(users, eq(sessions.userId, users.id))
+    .where(eq(sessions.token, token))
+    .limit(1);
+
+  if (!result) {
+    const error = new Error("Unauthorized");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  return { data: result };
+}
