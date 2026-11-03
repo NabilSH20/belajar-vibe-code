@@ -149,11 +149,11 @@ Jalankan server menggunakan `bun run dev` dan lakukan pengujian skenario berikut
 ---
 
 ## 6. Definition of Done (DoD)
-- [ ] Fungsi `logoutUser(token)` dibuat di `src/services/users-services.js`.
-- [ ] Record sesi terkait berhasil dihapus dari tabel `sessions` saat logout dipanggil.
-- [ ] Handler `DELETE /api/users/logout` terpasang di `src/route/users-route.js`.
-- [ ] Header `Authorization: Bearer <token>` tervalidasi dengan benar.
-- [ ] Response sukses mengembalikan format HTTP 200 `{ "data": "OK" }`.
-- [ ] Response error saat token tidak valid/sudah dihapus mengembalikan format HTTP 401 `{ "error": "Unauthorized" }`.
-- [ ] Token yang telah di-logout terbukti tidak bisa lagi digunakan pada endpoint `POST /api/users/current`.
-- [ ] Seluruh skenario pengujian manual berhasil dipenuhi.
+- [x] Fungsi `logoutUser(token)` dibuat di `src/services/users-services.js`.
+- [x] Record sesi terkait berhasil dihapus dari tabel `sessions` saat logout dipanggil.
+- [x] Handler `DELETE /api/users/logout` terpasang di `src/route/users-route.js`.
+- [x] Header `Authorization: Bearer <token>` tervalidasi dengan benar.
+- [x] Response sukses mengembalikan format HTTP 200 `{ "data": "OK" }`.
+- [x] Response error saat token tidak valid/sudah dihapus mengembalikan format HTTP 401 `{ "error": "Unauthorized" }`.
+- [x] Token yang telah di-logout terbukti tidak bisa lagi digunakan pada endpoint `POST /api/users/current`.
+- [x] Seluruh skenario pengujian manual berhasil dipenuhi.
