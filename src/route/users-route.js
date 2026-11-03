@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { registerUser } from "../services/users-services.js";
+import { registerUser, loginUser } from "../services/users-services.js";
 
 export const usersRoute = new Elysia({ prefix: "/api/users" })
   .post("/", async ({ body, set }) => {
@@ -15,5 +15,18 @@ export const usersRoute = new Elysia({ prefix: "/api/users" })
         error: error.message || "Terjadi kesalahan pada server",
       };
     }
+  })
+  .post("/login", async ({ body, set }) => {
+    try {
+      const result = await loginUser(body);
+      set.status = 200;
+      return {
+        data: result.data,
+      };
+    } catch (error) {
+      set.status = error.statusCode || 400;
+      return {
+        error: error.message || "Terjadi kesalahan pada server",
+      };
+    }
   });
-

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { users } from "../db/schema.js";
+import { users, sessions } from "../db/schema.js";
 
 /**
  * Service untuk memproses registrasi user baru
@@ -54,3 +54,48 @@ export async function registerUser({ name, email, password } = {}) {
   return { data: "OK" };
 }
 
+/**
+ * Service untuk memproses autentikasi login user dan pembuatan session token
+ * @param {{ email?: string, password?: string }} payload
+ * @returns {Promise<{ data: string }>}
+ */
+export async function loginUser({ email, password } = {}) {
+  // Validasi kelengkapan input
+  if (!email || !password) {
+    const error = new Error("email atau password salah");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Cari user berdasarkan email
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  if (!user) {
+    const error = new Error("email atau password salah");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Verifikasi hash password bcrypt
+  const isPasswordValid = await Bun.password.verify(password, user.password);
+  if (!isPasswordValid) {
+    const error = new Error("email atau password salah");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Buat session token UUID
+  const token = crypto.randomUUID();
+
+  // Simpan session baru ke database
+  await db.insert(sessions).values({
+    token,
+    userId: user.id,
+  });
+
+  return { data: token };
+}
