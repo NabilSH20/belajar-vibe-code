@@ -145,19 +145,14 @@ export async function logoutUser(token) {
     throw error;
   }
 
-  const [session] = await db
-    .select()
-    .from(sessions)
-    .where(eq(sessions.token, token))
-    .limit(1);
+  // Hapus sesi secara langsung dalam 1 query atomik untuk efisiensi dan menghindari race condition
+  const [result] = await db.delete(sessions).where(eq(sessions.token, token));
 
-  if (!session) {
+  if (!result || result.affectedRows === 0) {
     const error = new Error("Unauthorized");
     error.statusCode = 401;
     throw error;
   }
-
-  await db.delete(sessions).where(eq(sessions.token, token));
 
   return { data: "OK" };
 }
