@@ -121,11 +121,11 @@ Daftar skenario yang wajib diuji:
 ---
 
 ## 5. Definition of Done (DoD)
-- [ ] Folder `tests/` dibuat dan skrip `"test": "bun test"` terdaftar di `package.json`.
-- [ ] Mekanisme pembersihan database (*database cleanup*) diimplementasikan sebelum setiap skenario pengujian.
-- [ ] Seluruh skenario pengujian untuk `POST /api/users` terimplementasi dan lulus.
-- [ ] Seluruh skenario pengujian untuk `POST /api/users/login` terimplementasi dan lulus.
-- [ ] Seluruh skenario pengujian untuk `POST /api/users/current` terimplementasi dan lulus.
-- [ ] Seluruh skenario pengujian untuk `DELETE /api/users/logout` terimplementasi dan lulus.
-- [ ] Skenario pengujian endpoint pendukung (`GET /` dan `GET /health`) terimplementasi dan lulus.
-- [ ] Perintah `bun test` dapat dieksekusi dengan sukses tanpa ada test yang gagal atau menggantung (*hanging*).
+- [x] Folder `tests/` dibuat dan skrip `"test": "bun test"` terdaftar di `package.json`.
+- [x] Mekanisme pembersihan database (*database cleanup*) diimplementasikan sebelum setiap skenario pengujian.
+- [x] Seluruh skenario pengujian untuk `POST /api/users` terimplementasi dan lulus.
+- [x] Seluruh skenario pengujian untuk `POST /api/users/login` terimplementasi dan lulus.
+- [x] Seluruh skenario pengujian untuk `POST /api/users/current` terimplementasi dan lulus.
+- [x] Seluruh skenario pengujian untuk `DELETE /api/users/logout` terimplementasi dan lulus.
+- [x] Skenario pengujian endpoint pendukung (`GET /` dan `GET /health`) terimplementasi dan lulus.
+- [x] Perintah `bun test` dapat dieksekusi dengan sukses tanpa ada test yang gagal atau menggantung (*hanging*).
