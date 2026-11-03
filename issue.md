@@ -1,159 +1,125 @@
-# Feature Plan: User Logout API (`DELETE /api/users/logout`)
+# Bug Report & Fix Plan: Validasi Panjang Input Registrasi User & Pencegahan Kebocoran Error SQL
 
-## 1. Ringkasan Fitur
-Tujuan dari issue ini adalah membuat endpoint untuk fitur logout user pada aplikasi backend. Saat user melakukan logout, token sesi yang dikirimkan pada HTTP Header `Authorization` akan divalidasi dan kemudian dihapus secara permanen dari tabel `sessions` di database MySQL. Dengan begitu, sesi tersebut dinyatakan berakhir dan tidak dapat lagi digunakan untuk mengakses endpoint yang membutuhkan autentikasi (seperti `POST /api/users/current`).
+## 1. Deskripsi Bug
+Saat pengguna melakukan registrasi melalui endpoint `POST /api/users` dengan atribut `name` yang memiliki panjang lebih dari 255 karakter (misalnya 300 karakter), terjadi dua masalah serius:
+1. **Kegagalan Database**: MySQL menolak query dengan error `ER_DATA_TOO_LONG` karena kolom `name` pada tabel `users` bertipe `varchar(255)`.
+2. **Kebocoran Informasi Sensitif (*Information Disclosure / SQL Leak*)**: Pesan error mentah (*raw error*) dari database dan Drizzle ORM diteruskan secara langsung ke response client, sehingga struktur query SQL internal dan parameter input ikut terekspos ke publik.
 
-Dokumen ini disusun sebagai panduan langkah demi langkah (*step-by-step*) yang mudah dipahami oleh programmer junior maupun model AI.
-
----
-
-## 2. Spesifikasi API Endpoint
-
-### Endpoint: `DELETE /api/users/logout`
-- **Method**: `DELETE`
-- **Request Headers**:
-  - `Authorization`: `Bearer <token>` (Token sesi UUID pengguna yang sedang aktif)
-- **Request Body**: *(Kosong / Tidak memerlukan request body)*
-
-#### Response Sukses (HTTP 200)
-Jika token valid dan sesi berhasil dihapus dari database:
-```json
-{
-  "data": "OK"
-}
-```
-
-#### Response Error (HTTP 401 Unauthorized)
-Terjadi jika:
-- Header `Authorization` tidak dikirimkan.
-- Format header tidak diawali dengan `Bearer ` atau token kosong.
-- Token tidak ditemukan di tabel `sessions` (misalnya token palsu atau sudah pernah logout sebelumnya).
-```json
-{
-  "error": "Unauthorized"
-}
-```
+### Bukti Terjadinya Bug (*Actual Response*):
+- **HTTP Status**: `400 Bad Request`
+- **Response Body**:
+  ```json
+  {
+    "error": "Failed query: insert into `users` (`id`, `name`, `email`, `password`, `created_at`) values (default, ?, ?, ?, default)\nparams: aaaaaaaaaa...,testlong@localhost,$2b$10$..."
+  }
+  ```
 
 ---
 
-## 3. Standar Arsitektur & Struktur File
+## 2. Analisis Penyebab Masalah (Root Cause Analysis)
 
-Melanjutkan arsitektur proyek berbasis **Separation of Concerns (SoC)**:
-1. **Route Layer (`src/route/users-route.js`)**: Mengekstrak token dari header `Authorization`, memanggil fungsi service `logoutUser`, dan mengatur status code HTTP (200 untuk sukses, 401 untuk unauthorized).
-2. **Service Layer (`src/services/users-services.js`)**: Memeriksa keberadaan sesi di database, menghapus record sesi menggunakan Drizzle ORM (`db.delete`), dan mengembalikan hasil `{ data: "OK" }`.
-
-### Struktur File:
-```text
-src/
-├── db/
-│   ├── index.js             # Koneksi Drizzle & pool MySQL
-│   └── schema.js            # Skema tabel users dan sessions
-├── route/
-│   └── users-route.js       # Penambahan handler: DELETE /api/users/logout
-└── services/
-    └── users-services.js    # Penambahan fungsi service: logoutUser
-```
-
----
-
-## 4. Panduan Tahapan Implementasi (Step-by-Step untuk Junior Programmer)
-
-### Langkah 1: Pahami Alur Kerja Logout
-1. Client mengirim request `DELETE` ke `/api/users/logout` dengan membawa header `Authorization: Bearer <token>`.
-2. Server mengambil string token tersebut.
-3. Server mencari token tersebut di tabel `sessions`.
-4. Jika sesi tidak ditemukan, lempar error HTTP 401 `"Unauthorized"`.
-5. Jika sesi ditemukan, hapus baris (*row*) sesi tersebut dari tabel `sessions`.
-6. Kembalikan response HTTP 200 dengan format `{ "data": "OK" }`.
-
-### Langkah 2: Tambahkan Service `logoutUser` di `src/services/users-services.js`
-Buat fungsi asynchronous `logoutUser(token)`:
-1. **Validasi Input**:
-   - Jika `token` kosong/undefined, lempar error dengan pesan `"Unauthorized"` dan `statusCode = 401`.
-2. **Cek Keberadaan Sesi di Database**:
-   - Query tabel `sessions` berdasarkan `token`:
-     ```javascript
-     const [session] = await db
-       .select()
-       .from(sessions)
-       .where(eq(sessions.token, token))
-       .limit(1);
-     ```
-   - Jika `!session`, lempar error dengan pesan `"Unauthorized"` dan `statusCode = 401`.
-3. **Hapus Sesi dari Database**:
-   - Jalankan query delete Drizzle ORM:
-     ```javascript
-     await db.delete(sessions).where(eq(sessions.token, token));
-     ```
-4. **Kembalikan Hasil**:
-   - Return `{ data: "OK" }`.
-
-### Langkah 3: Tambahkan Handler di Route `src/route/users-route.js`
-1. Import fungsi `logoutUser` dari `../services/users-services.js`.
-2. Tambahkan handler route `.delete("/logout", ...)` pada instance router `usersRoute`:
+1. **Ketiadaan Validasi Batas Panjang Karakter di Service Layer**:
+   Pada file [`src/services/users-services.js`](file:///d:/ProjectVibeEng/belajar-vibe-code/src/services/users-services.js), fungsi `registerUser` hanya memeriksa apakah field terisi:
    ```javascript
-   .delete("/logout", async ({ headers, set }) => {
-     try {
-       const authHeader = headers.authorization || headers.Authorization;
-
-       // Validasi keberadaan format Bearer token
-       if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
-         set.status = 401;
-         return { error: "Unauthorized" };
-       }
-
-       // Ekstrak nilai token
-       const token = authHeader.substring(7).trim();
-       if (!token) {
-         set.status = 401;
-         return { error: "Unauthorized" };
-       }
-
-       const result = await logoutUser(token);
-       set.status = 200;
-       return { data: result.data };
-     } catch (error) {
-       set.status = error.statusCode || 401;
-       return { error: "Unauthorized" };
-     }
-   })
+   if (!name || !email || !password) {
+     const error = new Error("name, email, dan password wajib diisi");
+     error.statusCode = 400;
+     throw error;
+   }
    ```
+   Tidak ada validasi `name.length <= 255` maupun `email.length <= 255`.
 
-### Langkah 4: Pengujian & Validasi Fitur
-Jalankan server menggunakan `bun run dev` dan lakukan pengujian skenario berikut secara berurutan:
+2. **Error Handling Database yang Tidak Tersanitasi**:
+   Dalam blok `catch (err)` pada fungsi `registerUser`:
+   ```javascript
+   } catch (err) {
+     if (err.code === "ER_DUP_ENTRY" || err.message?.includes("Duplicate entry")) {
+       const error = new Error("email sudah terdaftar");
+       error.statusCode = 400;
+       throw error;
+     }
+     throw err; // <-- Error mentah DrizzleQueryError dilempar apa adanya
+   }
+   ```
+   Dan di controller [`src/route/users-route.js`](file:///d:/ProjectVibeEng/belajar-vibe-code/src/route/users-route.js):
+   ```javascript
+   } catch (error) {
+     set.status = error.statusCode || 400;
+     return {
+       error: error.message || "Terjadi kesalahan pada server",
+     };
+   }
+   ```
+   Karena `error.statusCode` tidak diset pada error database tak terduga, status code default ke `400` dan `error.message` mentah langsung dikirim ke client.
 
-1. **Skenario 1: Login dan Ambil Token**:
-   - Kirim `POST /api/users/login` dengan kredensial valid.
-   - Ambil token UUID dari response: `{ "data": "<token>" }`.
-2. **Skenario 2: Logout Berhasil (HTTP 200)**:
-   - Kirim `DELETE /api/users/logout` dengan header `Authorization: Bearer <token>`.
-   - Ekspektasi: HTTP 200, response body `{ "data": "OK" }`.
-3. **Skenario 3: Verifikasi Penghapusan di Database**:
-   - Cek tabel `sessions` di MySQL untuk memastikan record dengan token tersebut telah terhapus (*tidak ada lagi di database*).
-4. **Skenario 4: Coba Logout Ulang dengan Token yang Sama (HTTP 401)**:
-   - Kirim kembali `DELETE /api/users/logout` dengan token yang barusan dihapus.
-   - Ekspektasi: HTTP 401, response body `{ "error": "Unauthorized" }` (karena sesi sudah hangus).
-5. **Skenario 5: Coba Akses Get Current User dengan Token yang Telah Logout (HTTP 401)**:
-   - Kirim `POST /api/users/current` dengan token yang telah logout.
-   - Ekspektasi: HTTP 401 `{ "error": "Unauthorized" }`.
-6. **Skenario 6: Logout Tanpa Header Authorization (HTTP 401)**:
-   - Kirim `DELETE /api/users/logout` tanpa header.
-   - Ekspektasi: HTTP 401 `{ "error": "Unauthorized" }`.
+---
+
+## 3. Spesifikasi Perilaku yang Diharapkan (Expected Behavior)
+
+Jika client mengirimkan `name` dengan panjang lebih dari 255 karakter:
+- **HTTP Status**: `400 Bad Request`
+- **Response Body**:
+  ```json
+  {
+    "error": "nama maksimal 255 karakter"
+  }
+  ```
+- **Keamanan**: Tidak ada informasi skema database, query SQL, atau stack trace internal yang bocor ke response client.
+
+Begitu juga untuk `email` (maksimal 255 karakter) dan `password` (maksimal 255 karakter):
+- `email`: `400 Bad Request` $\rightarrow$ `{ "error": "email maksimal 255 karakter" }`
+- `password`: `400 Bad Request` $\rightarrow$ `{ "error": "password maksimal 255 karakter" }`
+
+---
+
+## 4. Panduan Perbaikan Langkah demi Langkah (Untuk Junior Programmer)
+
+### Langkah 1: Tambahkan Validasi Panjang Karakter di `src/services/users-services.js`
+Buka file `src/services/users-services.js` dan perbarui fungsi `registerUser`:
+1. Pastikan input tidak kosong (trim whitespace).
+2. Periksa batas panjang karakter:
+   - Jika `name.length > 255`: lempar error dengan pesan `"nama maksimal 255 karakter"` dan `statusCode = 400`.
+   - Jika `email.length > 255`: lempar error dengan pesan `"email maksimal 255 karakter"` dan `statusCode = 400`.
+   - Jika `password.length > 255`: lempar error dengan pesan `"password maksimal 255 karakter"` dan `statusCode = 400`.
+
+### Langkah 2: Sanitasi Error Handling Database (Cegah SQL Leak)
+Pada blok `try / catch` insert ke database di `registerUser`:
+1. Tetap tangkap error `ER_DUP_ENTRY` untuk pesan `"email sudah terdaftar"`.
+2. Jika terjadi error database lain (misalnya masalah koneksi atau error tak terduga):
+   - Catat error ke console server: `console.error("Database error in registerUser:", err);`
+   - Jangan melempar error mentah ke client! Buat objek error baru yang aman:
+     ```javascript
+     const serverError = new Error("Terjadi kesalahan pada server");
+     serverError.statusCode = 500;
+     throw serverError;
+     ```
+
+### Langkah 3: Pengujian & Validasi Fitur
+Lakukan pengujian otomatis atau manual dengan skenario berikut:
+1. **Skenario 1 (Kasus Bug Utama)**:
+   - Request `POST /api/users` dengan `name` sepanjang 300 karakter.
+   - **Ekspektasi**: HTTP 400, Body `{ "error": "nama maksimal 255 karakter" }`.
+2. **Skenario 2 (Email Terlalu Panjang)**:
+   - Request `POST /api/users` dengan `email` sepanjang 300 karakter.
+   - **Ekspektasi**: HTTP 400, Body `{ "error": "email maksimal 255 karakter" }`.
+3. **Skenario 3 (Registrasi Normal / Valid)**:
+   - Request `POST /api/users` dengan panjang normal (`name: "nabil"`, `email: "nabil2@localhost"`).
+   - **Ekspektasi**: HTTP 200, Body `{ "data": "OK" }`.
+4. **Skenario 4 (Verifikasi SQL Leak)**:
+   - Pastikan pada seluruh skenario gagal, tidak ada pesan bertuliskan `Failed query:` atau parameter SQL yang muncul di response API.
 
 ---
 
 ## 5. Catatan Penting untuk Junior Programmer
-- **Sifat Idempoten vs Strict Auth**: Pada skenario autentikasi sesi ketat, jika token sudah tidak ada di database, server wajib menolak request dengan HTTP 401 Unauthorized karena token tersebut tidak merepresentasikan sesi pengguna yang sah.
-- **Integritas Relasi**: Menghapus data sesi hanya menghapus row pada tabel `sessions`, akun user pada tabel `users` tetap ada dan utuh.
+- **Fail Fast di Layer Aplikasi**: Selalu validasi data di layer aplikasi sebelum menyentuh database. Menyerahkan validasi ke database akan membuang resource (koneksi, hashing bcrypt yang memakan CPU) dan menimbulkan risiko kebocoran internal error.
+- **Prinsip Information Leak Prevention**: Client hanya boleh menerima pesan error fungsional yang ramah pengguna. Detail query database, nama tabel, atau stack trace hanya boleh dicatat di server log (*console.error/logger*), tidak boleh dikirim ke client.
 
 ---
 
 ## 6. Definition of Done (DoD)
-- [x] Fungsi `logoutUser(token)` dibuat di `src/services/users-services.js`.
-- [x] Record sesi terkait berhasil dihapus dari tabel `sessions` saat logout dipanggil.
-- [x] Handler `DELETE /api/users/logout` terpasang di `src/route/users-route.js`.
-- [x] Header `Authorization: Bearer <token>` tervalidasi dengan benar.
-- [x] Response sukses mengembalikan format HTTP 200 `{ "data": "OK" }`.
-- [x] Response error saat token tidak valid/sudah dihapus mengembalikan format HTTP 401 `{ "error": "Unauthorized" }`.
-- [x] Token yang telah di-logout terbukti tidak bisa lagi digunakan pada endpoint `POST /api/users/current`.
+- [x] Validasi batas panjang karakter (`maxLength: 255`) untuk `name`, `email`, dan `password` ditambahkan ke `src/services/users-services.js`.
+- [x] Error database yang tidak terduga disanitasi sehingga mengembalikan status HTTP 500 dengan pesan aman `"Terjadi kesalahan pada server"`.
+- [x] Request registrasi dengan `name` > 255 karakter mengembalikan HTTP 400 dengan pesan `"nama maksimal 255 karakter"`.
+- [x] Tidak ada query SQL atau error mentah yang bocor ke response client.
+- [x] Registrasi data valid tetap berjalan normal tanpa regresi.
 - [x] Seluruh skenario pengujian manual berhasil dipenuhi.
